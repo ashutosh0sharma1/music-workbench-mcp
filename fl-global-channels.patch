@@ -1,0 +1,179 @@
+--- a/fl_controller/FLStudioMCP/device_FLStudioMCP.py
++++ b/fl_controller/FLStudioMCP/device_FLStudioMCP.py
+@@ -290,7 +290,7 @@
+     return {
+         "fl_version": _fl_version,
+         "protocol_version": PROTOCOL_VERSION,
+-        "build": "probe-v16",   # reload marker -- bump to verify reloads take
++        "build": "global-v17",   # reload marker -- bump to verify reloads take
+         "ts": time.time(),
+     }
+ 
+@@ -445,7 +445,7 @@
+         "recording": _is_recording(),
+         "pattern_number": pat_num,
+         "pattern_count": patterns.patternCount(),
+-        "channel_count": channels.channelCount(),
++        "channel_count": channels.channelCount(1),
+         "mixer_track_count": mixer.trackCount(),
+     }
+ 
+@@ -482,34 +482,34 @@
+ 
+ def _channel_dict(i):
+     try:
+-        tgt = channels.getTargetFxTrack(i)
++        tgt = channels.getTargetFxTrack(i, useGlobalIndex=True)
+     except Exception:
+         tgt = None
+     return {
+         "i": i,
+-        "name": channels.getChannelName(i),
+-        "pan": round(channels.getChannelPan(i), 4),
+-        "mute": bool(channels.isChannelMuted(i)),
+-        "solo": bool(channels.isChannelSolo(i)),
++        "name": channels.getChannelName(i, useGlobalIndex=True),
++        "pan": round(channels.getChannelPan(i, useGlobalIndex=True), 4),
++        "mute": bool(channels.isChannelMuted(i, useGlobalIndex=True)),
++        "solo": bool(channels.isChannelSolo(i, useGlobalIndex=True)),
+         "target_fx_track": tgt,
+         "color": _color_out(_safe_channel_color(i)),
+-        **_vol_out(channels.getChannelVolume(i)),
++        **_vol_out(channels.getChannelVolume(i, useGlobalIndex=True)),
+     }
+ 
+ 
+ def _channel_list_entry(i):
+-    name, cut = _truncate_name(channels.getChannelName(i))
+-    e = {"i": i, "name": name, "pan": round(channels.getChannelPan(i), 4),
+-         "mute": bool(channels.isChannelMuted(i)),
+-         "solo": bool(channels.isChannelSolo(i)),
+-         **_vol_out(channels.getChannelVolume(i))}
++    name, cut = _truncate_name(channels.getChannelName(i, useGlobalIndex=True))
++    e = {"i": i, "name": name, "pan": round(channels.getChannelPan(i, useGlobalIndex=True), 4),
++         "mute": bool(channels.isChannelMuted(i, useGlobalIndex=True)),
++         "solo": bool(channels.isChannelSolo(i, useGlobalIndex=True)),
++         **_vol_out(channels.getChannelVolume(i, useGlobalIndex=True))}
+     if cut:
+         e["trunc"] = True
+     return e
+ 
+ 
+ def _h_channel_list(params):
+-    return _paginate(channels.channelCount(), params.get("start", 0), _channel_list_entry, "channels")
++    return _paginate(channels.channelCount(1), params.get("start", 0), _channel_list_entry, "channels")
+ 
+ 
+ def _h_channel_get(params):
+@@ -585,30 +585,30 @@
+ 
+ def _h_channel_set_volume(p):
+     c = int(p["channel"])
+-    channels.setChannelVolume(c, _resolve_vol(p))
++    channels.setChannelVolume(c, _resolve_vol(p), useGlobalIndex=True)
+     out = {"channel": c}
+-    out.update(_vol_out(channels.getChannelVolume(c)))
++    out.update(_vol_out(channels.getChannelVolume(c, useGlobalIndex=True)))
+     return out
+ 
+ 
+ def _h_channel_set_pan(p):
+     c = int(p["channel"])
+-    channels.setChannelPan(c, _clamp_pan(p["value"]))
+-    return {"channel": c, "pan": round(channels.getChannelPan(c), 4)}
++    channels.setChannelPan(c, _clamp_pan(p["value"]), useGlobalIndex=True)
++    return {"channel": c, "pan": round(channels.getChannelPan(c, useGlobalIndex=True), 4)}
+ 
+ 
+ def _h_channel_set_mute(p):
+     c = int(p["channel"])
+-    if bool(channels.isChannelMuted(c)) != bool(p["state"]):
+-        channels.muteChannel(c)
+-    return {"channel": c, "mute": bool(channels.isChannelMuted(c))}
++    if bool(channels.isChannelMuted(c, useGlobalIndex=True)) != bool(p["state"]):
++        channels.muteChannel(c, useGlobalIndex=True)
++    return {"channel": c, "mute": bool(channels.isChannelMuted(c, useGlobalIndex=True))}
+ 
+ 
+ def _h_channel_set_solo(p):
+     c = int(p["channel"])
+-    if bool(channels.isChannelSolo(c)) != bool(p["state"]):
+-        channels.soloChannel(c)
+-    return {"channel": c, "solo": bool(channels.isChannelSolo(c))}
++    if bool(channels.isChannelSolo(c, useGlobalIndex=True)) != bool(p["state"]):
++        channels.soloChannel(c, useGlobalIndex=True)
++    return {"channel": c, "solo": bool(channels.isChannelSolo(c, useGlobalIndex=True))}
+ 
+ 
+ # -- Track / channel color ---------------------------------------------------
+@@ -649,7 +649,7 @@
+ 
+ def _safe_channel_color(i):
+     try:
+-        return int(channels.getChannelColor(i)) & 0xFFFFFF
++        return int(channels.getChannelColor(i, useGlobalIndex=True)) & 0xFFFFFF
+     except Exception:
+         return 0
+ 
+@@ -672,7 +672,7 @@
+ 
+ def _h_channel_set_color(p):
+     c = int(p["channel"])
+-    channels.setChannelColor(c, _resolve_color(p))
++    channels.setChannelColor(c, _resolve_color(p), useGlobalIndex=True)
+     return {"channel": c, "color": _color_out(_safe_channel_color(c))}
+ 
+ 
+@@ -805,10 +805,10 @@
+ 
+ def _channel_route_entry(i):
+     try:
+-        tgt = channels.getTargetFxTrack(i)
++        tgt = channels.getTargetFxTrack(i, useGlobalIndex=True)
+     except Exception:
+         tgt = None
+-    cname, cut = _truncate_name(channels.getChannelName(i))
++    cname, cut = _truncate_name(channels.getChannelName(i, useGlobalIndex=True))
+     valid = isinstance(tgt, int) and 0 <= tgt < mixer.trackCount()
+     e = {"channel": i, "name": cname, "target_mixer_track": tgt,
+          "target_name": (mixer.getTrackName(tgt) if valid else None)}
+@@ -818,7 +818,7 @@
+ 
+ 
+ def _h_channel_routing_summary(p):
+-    return _paginate(channels.channelCount(), p.get("start", 0), _channel_route_entry, "channels")
++    return _paginate(channels.channelCount(1), p.get("start", 0), _channel_route_entry, "channels")
+ 
+ 
+ # -- Routing WRITE surface (Slice 2) -----------------------------------------
+@@ -1000,7 +1000,7 @@
+         bits, assigned, err = [], [], None
+         for i in range(start, end):
+             try:
+-                bit = 1 if channels.getGridBit(ch, i) else 0
++                bit = 1 if channels.getGridBit(ch, i, useGlobalIndex=True) else 0
+             except Exception as e:
+                 err = f"err: {type(e).__name__}: {e}"
+                 # Error text is budgeted too, but never trimmed below the
+@@ -1009,7 +1009,7 @@
+                     err = err[: len(err) // 2]
+                 break
+             try:
+-                a = bool(channels.isGridBitAssigned(ch, i))
++                a = bool(channels.isGridBitAssigned(ch, useGlobalIndex=True))
+             except Exception:
+                 a = None
+             nxt = start + len(bits) + 1
+@@ -1214,10 +1214,10 @@
+     selected channel, so this retargets the note bridge to write into it."""
+     idx = int(p["channel"])
+     try:
+-        channels.selectOneChannel(idx)
++        channels.selectOneChannel(idx, useGlobalIndex=True)
+     except Exception as e:
+         return {"ok": False, "error": "selectOneChannel: %s" % e}
+-    return {"ok": True, "channel": idx, "name": channels.getChannelName(idx),
++    return {"ok": True, "channel": idx, "name": channels.getChannelName(idx, useGlobalIndex=True),
+             "selected": channels.channelNumber()}
+ 
+ 

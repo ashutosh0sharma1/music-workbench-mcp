@@ -1,0 +1,44 @@
+diff --git a/src/fl_studio_mcp/routes/pyflp_route.py b/src/fl_studio_mcp/routes/pyflp_route.py
+index b4ddd71..09985cc 100644
+--- a/src/fl_studio_mcp/routes/pyflp_route.py
++++ b/src/fl_studio_mcp/routes/pyflp_route.py
+@@ -216,7 +216,8 @@ def load_samples(
+         import struct as _st
+         import wave as _wave
+ 
+-        from pyflp.arrangement import ArrangementID, PlaylistEvent
++        from pyflp.arrangement import ArrangementID
++        from pyflp._events import UnknownDataEvent
+ 
+         project = pyflp.parse(out)
+         ppq = project.ppq or 96
+@@ -276,7 +277,9 @@ def load_samples(
+             for i, it in enumerate(items)
+         )
+         events.remove(ArrangementID.Playlist)
+-        events.insert(idx, PlaylistEvent(ArrangementID.Playlist, data))
++        # PyFLP 2.2.1 only understands 32/60-byte records. Parsing an 80-byte
++        # record here silently drops its trailing 16 bytes when saving.
++        events.insert(idx, UnknownDataEvent(ArrangementID.Playlist, data))
+         pyflp.save(project, out)
+ 
+     return info(str(out))
+@@ -632,6 +635,18 @@ def diff(path_a: str, path_b: str) -> dict[str, Any]:
+ def set_tempo(path: str, bpm: float, out_path: str | None = None) -> dict[str, Any]:
+     """Set the project tempo (BPM). Writes in place unless ``out_path`` is given."""
+     project = pyflp.parse(Path(path).expanduser())
++    # Keep native Playlist payloads opaque during metadata-only edits too.
++    # Re-serializing PyFLP's partial model would truncate modern records.
++    from pyflp._events import UnknownDataEvent
++    from pyflp.arrangement import ArrangementID
++    raw_playlists = iter(d for eid, _v, d in _flp_events(path)[1] if eid == _EV_PLAYLIST)
++    playlist_index = 0
++    for index, event in enumerate(list(project.events)):
++        if event.id == ArrangementID.Playlist:
++            payload = next(raw_playlists)
++            project.events.remove(ArrangementID.Playlist, playlist_index)
++            project.events.insert(index, UnknownDataEvent(ArrangementID.Playlist, payload))
++            playlist_index += 1
+     project.tempo = float(bpm)
+     out = _resolve_out(path, out_path)
+     pyflp.save(project, out)

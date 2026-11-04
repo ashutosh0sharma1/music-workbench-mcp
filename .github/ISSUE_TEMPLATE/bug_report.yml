@@ -1,0 +1,14 @@
+name: Bug report
+description: Report a reproducible problem using synthetic data.
+body:
+  - type: textarea
+    attributes:
+      label: Problem and expected behavior
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Reproduction and environment
+      description: Include versions and checks. Remove secrets and private data.
+    validations:
+      required: true

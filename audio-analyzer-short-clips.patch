@@ -1,0 +1,32 @@
+diff --git a/src/analysis/sections.rs b/src/analysis/sections.rs
+index f49d5ae..f8cc697 100644
+--- a/src/analysis/sections.rs
++++ b/src/analysis/sections.rs
+@@ -229,7 +229,7 @@ pub fn detect_sections(
+     let search_end = combined
+         .len()
+         .saturating_sub(edge_guard)
+-        .max(search_start + 1);
++        .min(combined.len().saturating_sub(1));
+ 
+     for i in search_start..search_end {
+         if combined[i] > threshold
+@@ -827,6 +827,18 @@ mod tests {
+         assert!(output.contains("1:18.1"));
+     }
+ 
++    #[test]
++    fn test_short_clips_do_not_panic() {
++        for seconds in [1, 2, 4, 8] {
++            let samples: Vec<f32> = (0..22050 * seconds)
++                .map(|i| (2.0 * PI * 220.0 * i as f32 / 22050.0).sin() * 0.15)
++                .collect();
++            let spec = compute_spectrogram(&samples, 22050, None, None);
++            let result = detect_sections(&spec, None, Some(&samples));
++            assert!(result.boundaries.iter().all(|b| b.time < seconds as f32));
++        }
++    }
++
+     #[test]
+     fn test_downsample_factor() {
+         // At 44100 Hz, hop 512: ~86 frames/sec → ds_factor ≈ 22 for ~4/sec

@@ -1,0 +1,14 @@
+--- a/src/fl_studio_mcp/connection.py
++++ b/src/fl_studio_mcp/connection.py
+@@ -295,7 +295,10 @@
+             slot.event.set()
+             return
+ 
+-        # DIR_REQUEST coming from FL is a protocol error; we don't handle it.
++        # A full-duplex loopMIDI bus echoes our request. Direction tags keep
++        # it out of response correlation; this is normal, not a protocol error.
++        if direction == DIR_REQUEST and self._port_to_fl_pattern == self._port_from_fl_pattern:
++            return
+         logger.warning("Unexpected direction %d from FL", direction)
+ 
+ 

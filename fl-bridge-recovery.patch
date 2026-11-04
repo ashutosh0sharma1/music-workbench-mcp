@@ -1,0 +1,21 @@
+diff --git a/src/fl_studio_mcp/connection.py b/src/fl_studio_mcp/connection.py
+index ae1e194..9fdaa37 100644
+--- a/src/fl_studio_mcp/connection.py
++++ b/src/fl_studio_mcp/connection.py
+@@ -441,8 +441,14 @@ def get_bridge() -> "FLBridge | TCPBridge":
+         if transport == "tcp":
+             _bridge = TCPBridge()
+         else:
+-            _bridge = FLBridge()
+-            _bridge.open()
++            candidate = FLBridge()
++            try:
++                candidate.open()
++                candidate.check_alive()
++            except Exception:
++                candidate.close()
++                raise
++            _bridge = candidate
+     return _bridge
+ 
+ 
